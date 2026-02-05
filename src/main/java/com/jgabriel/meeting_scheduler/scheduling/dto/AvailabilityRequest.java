@@ -1,4 +1,5 @@
 package com.jgabriel.meeting_scheduler.scheduling.dto;
+
 import jakarta.validation.constraints.Future;
 import jakarta.validation.constraints.NotNull;
 import java.time.LocalDateTime;
@@ -10,7 +11,10 @@ public record AvailabilityRequest(
 
         @NotNull(message = "End time is mandatory")
         @Future(message = "End time must be in the future")
-        LocalDateTime endTime
+        LocalDateTime endTime,
+
+        @NotNull(message = "Owner ID is mandatory")
+        Long ownerId
 ) {
     public boolean isValid() {
         return startTime != null && endTime != null && startTime.isBefore(endTime);

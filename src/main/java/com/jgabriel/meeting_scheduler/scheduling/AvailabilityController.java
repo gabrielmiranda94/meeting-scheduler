@@ -1,14 +1,16 @@
 package com.jgabriel.meeting_scheduler.scheduling;
+
 import com.jgabriel.meeting_scheduler.scheduling.dto.AvailabilityRequest;
 import com.jgabriel.meeting_scheduler.scheduling.dto.ReservationRequest;
-import com.jgabriel.meeting_scheduler.scheduling.dto.TimeBlockResponse; // Import novo
+import com.jgabriel.meeting_scheduler.scheduling.dto.TimeBlockResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/availability")
@@ -18,11 +20,11 @@ public class AvailabilityController {
     private final SchedulingService schedulingService;
 
     @GetMapping
-    public ResponseEntity<List<TimeBlockResponse>> list() {
-        List<TimeBlockResponse> response = schedulingService.getAvailableBlocks()
-                .stream()
-                .map(TimeBlockResponse::from) // Converte cada item
-                .toList();
+    public ResponseEntity<Page<TimeBlockResponse>> list(
+            @PageableDefault(size = 20, sort = "startTime") Pageable pageable
+    ) {
+        Page<TimeBlockResponse> response = schedulingService.getAvailableBlocks(pageable)
+                .map(TimeBlockResponse::from);
 
         return ResponseEntity.ok(response);
     }
@@ -32,7 +34,11 @@ public class AvailabilityController {
         if (!request.isValid()) {
             return ResponseEntity.badRequest().build();
         }
-        TimeBlock block = schedulingService.addAvailability(request.startTime(), request.endTime());
+        TimeBlock block = schedulingService.addAvailability(
+                request.startTime(),
+                request.endTime(),
+                request.ownerId()
+        );
         return ResponseEntity.status(HttpStatus.CREATED).body(TimeBlockResponse.from(block));
     }
 
@@ -41,12 +47,16 @@ public class AvailabilityController {
             @PathVariable Long blockId,
             @RequestBody @Valid ReservationRequest request) {
 
-        TimeBlock block = schedulingService.reserveBlock(
-                blockId,
-                request.userId(),
-                request.version()
-        );
+        TimeBlock block = schedulingService.reserveBlock(blockId, request);
+        return ResponseEntity.ok(TimeBlockResponse.from(block));
+    }
 
+    @PostMapping("/{blockId}/cancel")
+    public ResponseEntity<TimeBlockResponse> cancel(
+            @PathVariable Long blockId,
+            @RequestParam Long userId) {
+
+        TimeBlock block = schedulingService.cancelReservation(blockId, userId);
         return ResponseEntity.ok(TimeBlockResponse.from(block));
     }
 }
