@@ -23,26 +23,27 @@ configurations {
 repositories {
     mavenCentral()
 }
-
 dependencies {
-    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.3.0'
+    implementation 'org.springframework.boot:spring-boot-starter-web'
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
     implementation 'org.springframework.boot:spring-boot-starter-validation'
-    implementation 'org.springframework.boot:spring-boot-starter-web'
-    compileOnly 'org.projectlombok:lombok'
-    developmentOnly 'org.springframework.boot:spring-boot-docker-compose'
+
+    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.3'
+
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+    runtimeOnly 'io.micrometer:micrometer-registry-prometheus'
+
     runtimeOnly 'org.postgresql:postgresql'
+    compileOnly 'org.projectlombok:lombok'
     annotationProcessor 'org.projectlombok:lombok'
 
-    testImplementation platform('org.testcontainers:testcontainers-bom:1.19.8')
+    developmentOnly 'org.springframework.boot:spring-boot-docker-compose'
 
-    // Suas dependências normais (o BOM acima vai controlar a versão destas)
+    testImplementation platform('org.testcontainers:testcontainers-bom:1.19.8')
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'org.springframework.boot:spring-boot-testcontainers'
     testImplementation 'org.testcontainers:junit-jupiter'
     testImplementation 'org.testcontainers:postgresql'
-
-    // Mantenha o JNA, ele é amigo do Windows
     testImplementation 'net.java.dev.jna:jna:5.13.0'
 }
 

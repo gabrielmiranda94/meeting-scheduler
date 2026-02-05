@@ -16,6 +16,7 @@ import org.springframework.test.web.servlet.MvcResult;
 import java.time.LocalDateTime;
 import java.util.concurrent.CompletableFuture;
 
+import static org.assertj.core.api.Assertions.assertThat; // Importante para asserções melhores
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -31,7 +32,7 @@ class AvailabilityIntegrationTest extends AbstractIntegrationTest {
     private static final String API_URL = "/api/v1/availability";
 
     @Test
-    @DisplayName("prevents double booking")
+    @DisplayName("should prevent double booking using optimistic locking")
     void testConcurrency_optimisticLocking() throws Exception {
         var start = LocalDateTime.now().plusDays(1).withHour(10).withMinute(0);
         var end = start.plusHours(1);
@@ -49,29 +50,32 @@ class AvailabilityIntegrationTest extends AbstractIntegrationTest {
                 TimeBlockResponse.class
         );
 
-        var user1Request = new ReservationRequest(101L);
-        var user2Request = new ReservationRequest(102L);
+        Long blockId = createdBlock.id();
+        Long initialVersion = createdBlock.version(); // <--- O Pulo do Gato Sênior
+
+        var user1Request = new ReservationRequest(101L, initialVersion);
+        var user2Request = new ReservationRequest(102L, initialVersion);
 
         String jsonUser1 = objectMapper.writeValueAsString(user1Request);
         String jsonUser2 = objectMapper.writeValueAsString(user2Request);
 
         CompletableFuture<Integer> user1Future = CompletableFuture.supplyAsync(() ->
-                doReserve(createdBlock.id(), jsonUser1));
+                doReserve(blockId, jsonUser1));
 
         CompletableFuture<Integer> user2Future = CompletableFuture.supplyAsync(() ->
-                doReserve(createdBlock.id(), jsonUser2));
+                doReserve(blockId, jsonUser2));
 
         CompletableFuture.allOf(user1Future, user2Future).join();
-
         int statusUser1 = user1Future.get();
         int statusUser2 = user2Future.get();
+
+        assertThat(statusUser1).isNotEqualTo(statusUser2); // Não podem ser iguais
 
         boolean oneSucceeded = (statusUser1 == 200 || statusUser2 == 200);
         boolean oneConflict = (statusUser1 == 409 || statusUser2 == 409);
 
-        if (!oneSucceeded || !oneConflict) {
-            throw new RuntimeException("Concurency failed. Statuses: " + statusUser1 + " / " + statusUser2);
-        }
+        assertThat(oneSucceeded).as("Pelo menos um usuário deve conseguir reservar").isTrue();
+        assertThat(oneConflict).as("O outro usuário deve receber conflito (409)").isTrue();
     }
 
     private int doReserve(Long blockId, String json) {
@@ -83,6 +87,7 @@ class AvailabilityIntegrationTest extends AbstractIntegrationTest {
                     .getResponse()
                     .getStatus();
         } catch (Exception e) {
+            e.printStackTrace();
             return 500;
         }
     }

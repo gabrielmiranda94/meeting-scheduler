@@ -7,7 +7,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
-public class OpenApiConfig {
+public class EngineDocumentationConfig {
 
     @Bean
     public OpenAPI customOpenAPI() {
@@ -18,6 +18,7 @@ public class OpenApiConfig {
                         .description("Backend service handling high-concurreny scheduling.")
                         .contact(new Contact()
                                 .name("Gabriel")
+                                .email("gabriel.miranda94@hotmail.com")
                                 .url("https://github.com/gabrielmiranda94")
                         )
                 );

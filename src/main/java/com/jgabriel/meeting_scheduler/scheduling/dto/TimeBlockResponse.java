@@ -8,7 +8,8 @@ public record TimeBlockResponse(
         LocalDateTime startTime,
         LocalDateTime endTime,
         String status,
-        Long reservedBy
+        Long reservedBy,
+        Long version
 ) {
     public static TimeBlockResponse from(TimeBlock block) {
         return new TimeBlockResponse(
@@ -16,7 +17,8 @@ public record TimeBlockResponse(
                 block.getStartTime(),
                 block.getEndTime(),
                 block.getStatus().name(),
-                block.getReservedBy()
+                block.getReservedBy(),
+                block.getVersion()
         );
     }
 }

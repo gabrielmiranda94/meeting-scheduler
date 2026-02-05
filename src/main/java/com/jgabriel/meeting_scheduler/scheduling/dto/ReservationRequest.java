@@ -4,7 +4,6 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 
 public record ReservationRequest(
-        @NotNull(message = "User ID is required for reservation")
-        @Positive
-        Long userId
+        @NotNull Long userId,
+        @NotNull Long version
 ) {}

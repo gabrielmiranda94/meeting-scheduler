@@ -1,23 +1,19 @@
-version: '3.8'
-
 services:
-  # 1. A sua Aplicação Spring Boot
   app:
     build: .
     container_name: meeting_scheduler_app
     ports:
       - "8080:8080"
     environment:
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/scheduler
-      - SPRING_DATASOURCE_USERNAME=admin
-      - SPRING_DATASOURCE_PASSWORD=password
-      - SPRING_JPA_HIBERNATE_DDL_AUTO=update
+      - JDBC_DATABASE_URL=jdbc:postgresql://postgres:5432/scheduler
+      - DB_USER=admin
+      - DB_PASSWORD=password
+      - INTERNAL_LOG_LEVEL=INFO
     depends_on:
       postgres:
         condition: service_healthy
     restart: on-failure
 
-  # 2. O Banco de Dados (Já estava ótimo)
   postgres:
     image: postgres:15-alpine
     container_name: scheduler_db

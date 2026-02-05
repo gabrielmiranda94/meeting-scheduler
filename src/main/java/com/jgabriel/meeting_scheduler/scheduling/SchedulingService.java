@@ -1,6 +1,7 @@
 package com.jgabriel.meeting_scheduler.scheduling;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -13,6 +14,7 @@ public class SchedulingService {
 
     private static final String MSG_BLOCK_NOT_FOUND = "Time block not found with ID: ";
     private static final String MSG_BLOCK_UNAVAILABLE = "This time block is already reserved";
+    private static final String MSG_VERSION_CONFLICT = "Optimistic locking failure: Client provided version %d, but current version is %d.";
 
     private final TimeBlockRepository blockRepository;
 
@@ -31,9 +33,15 @@ public class SchedulingService {
     }
 
     @Transactional
-    public TimeBlock reserveBlock(Long blockId, Long userId) {
+    public TimeBlock reserveBlock(Long blockId, Long userId, Long clientVersion) {
         TimeBlock block = blockRepository.findById(blockId)
                 .orElseThrow(() -> new IllegalArgumentException(MSG_BLOCK_NOT_FOUND + blockId));
+
+        if (!block.getVersion().equals(clientVersion)) {
+            throw new OptimisticLockingFailureException(
+                    String.format(MSG_VERSION_CONFLICT, clientVersion, block.getVersion())
+            );
+        }
 
         if (block.getStatus() != BlockStatus.AVAILABLE) {
             throw new IllegalStateException(MSG_BLOCK_UNAVAILABLE);

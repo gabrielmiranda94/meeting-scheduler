@@ -37,8 +37,16 @@ public class AvailabilityController {
     }
 
     @PostMapping("/{blockId}/reserve")
-    public ResponseEntity<TimeBlockResponse> reserve(@PathVariable Long blockId, @RequestBody @Valid ReservationRequest request) {
-        TimeBlock block = schedulingService.reserveBlock(blockId, request.userId());
+    public ResponseEntity<TimeBlockResponse> reserve(
+            @PathVariable Long blockId,
+            @RequestBody @Valid ReservationRequest request) {
+
+        TimeBlock block = schedulingService.reserveBlock(
+                blockId,
+                request.userId(),
+                request.version()
+        );
+
         return ResponseEntity.ok(TimeBlockResponse.from(block));
     }
 }
