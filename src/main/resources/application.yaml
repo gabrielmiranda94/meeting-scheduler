@@ -14,12 +14,14 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: update
-    show-sql: ${SHOW_SQL:true}
+      # A CURA: "create-drop" apaga tudo e cria do zero no início do teste.
+      # Isso garante que as tabelas novas (participants) sejam criadas.
+      ddl-auto: create-drop
+    show-sql: true
     properties:
       hibernate:
-        format_sql: true
         dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
     open-in-view: false
 
   jackson:

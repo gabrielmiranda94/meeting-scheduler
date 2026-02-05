@@ -21,33 +21,29 @@ public class TimeBlock {
     private Long id;
 
     @Column(nullable = false)
-    private Long ownerId;
-
-    @Column(nullable = false)
     private LocalDateTime startTime;
 
     @Column(nullable = false)
     private LocalDateTime endTime;
 
+    @Column(nullable = false)
+    private Long ownerId;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    @Builder.Default
-    private BlockStatus status = BlockStatus.AVAILABLE;
-
-    @Column(name = "reserved_by_user_id")
-    private Long reservedBy;
+    private BlockStatus status;
 
     private String title;
+
     private String description;
 
     @ElementCollection(fetch = FetchType.EAGER)
-    @CollectionTable(
-            name = "meeting_participants",
-            joinColumns = @JoinColumn(name = "time_block_id")
-    )
-    @Column(name = "participant")
+    @CollectionTable(name = "meeting_participants", joinColumns = @JoinColumn(name = "time_block_id"))
+    @Column(name = "participant_email")
     @Builder.Default
     private Set<String> participants = new HashSet<>();
+
+    private Long reservedBy;
 
     @Version
     private Long version;

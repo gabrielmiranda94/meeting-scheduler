@@ -8,9 +8,12 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.time.LocalDateTime;
 
 @RestController
 @RequestMapping("/api/v1/availability")
@@ -21,9 +24,12 @@ public class AvailabilityController {
 
     @GetMapping
     public ResponseEntity<Page<TimeBlockResponse>> list(
+            @RequestParam(required = false) Long userId,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime to,
             @PageableDefault(size = 20, sort = "startTime") Pageable pageable
     ) {
-        Page<TimeBlockResponse> response = schedulingService.getAvailableBlocks(pageable)
+        Page<TimeBlockResponse> response = schedulingService.getAvailableBlocks(userId, from, to, pageable)
                 .map(TimeBlockResponse::from);
 
         return ResponseEntity.ok(response);
@@ -31,9 +37,6 @@ public class AvailabilityController {
 
     @PostMapping
     public ResponseEntity<TimeBlockResponse> defineAvailability(@RequestBody @Valid AvailabilityRequest request) {
-        if (!request.isValid()) {
-            return ResponseEntity.badRequest().build();
-        }
         TimeBlock block = schedulingService.addAvailability(
                 request.startTime(),
                 request.endTime(),
@@ -58,5 +61,11 @@ public class AvailabilityController {
 
         TimeBlock block = schedulingService.cancelReservation(blockId, userId);
         return ResponseEntity.ok(TimeBlockResponse.from(block));
+    }
+
+    @DeleteMapping("/{blockId}")
+    public ResponseEntity<Void> delete(@PathVariable Long blockId) {
+        schedulingService.deleteBlock(blockId);
+        return ResponseEntity.noContent().build();
     }
 }

@@ -20,44 +20,44 @@ public class SchedulingService {
 
     private final TimeBlockRepository blockRepository;
 
-    public Page<TimeBlock> getAvailableBlocks(Pageable pageable) {
-        return blockRepository.findByStatus(BlockStatus.AVAILABLE, pageable);
+    public Page<TimeBlock> getAvailableBlocks(Long userId, LocalDateTime from, LocalDateTime to, Pageable pageable) {
+        return blockRepository.findWithFilters(userId, from, to, pageable);
     }
 
     @Transactional
     public TimeBlock addAvailability(LocalDateTime start, LocalDateTime end, Long ownerId) {
-        TimeBlock block = TimeBlock.builder()
+        if (end.isBefore(start)) {
+            throw new IllegalStateException("End time cannot be before start time");
+        }
+
+        var block = TimeBlock.builder()
                 .startTime(start)
                 .endTime(end)
                 .ownerId(ownerId)
                 .status(BlockStatus.AVAILABLE)
                 .build();
+
         return blockRepository.save(block);
     }
 
     @Transactional
     public TimeBlock reserveBlock(Long blockId, ReservationRequest request) {
         TimeBlock block = blockRepository.findById(blockId)
-                .orElseThrow(() -> new IllegalArgumentException(MSG_BLOCK_NOT_FOUND + blockId));
+                .orElseThrow(() -> new IllegalArgumentException("Time slot not found with id: " + blockId));
 
         if (!block.getVersion().equals(request.version())) {
-            throw new OptimisticLockingFailureException(
-                    String.format(MSG_VERSION_CONFLICT, request.version(), block.getVersion())
-            );
+            throw new OptimisticLockingFailureException("Stale data: version mismatch");
         }
 
         if (block.getStatus() != BlockStatus.AVAILABLE) {
-            throw new IllegalStateException(MSG_BLOCK_UNAVAILABLE);
+            throw new OptimisticLockingFailureException("Slot is already reserved");
         }
 
         block.setStatus(BlockStatus.RESERVED);
         block.setReservedBy(request.userId());
         block.setTitle(request.title());
         block.setDescription(request.description());
-
-        if (request.participants() != null) {
-            block.setParticipants(request.participants());
-        }
+        block.setParticipants(request.participants());
 
         return blockRepository.save(block);
     }
@@ -78,5 +78,12 @@ public class SchedulingService {
         block.getParticipants().clear();
 
         return blockRepository.save(block);
+    }
+
+    public void deleteBlock(Long blockId) {
+        if (!blockRepository.existsById(blockId)) {
+            throw new IllegalArgumentException("Block not found");
+        }
+        blockRepository.deleteById(blockId);
     }
 }

@@ -16,13 +16,11 @@ import org.springframework.test.web.servlet.MvcResult;
 import java.time.LocalDateTime;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.IntStream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -40,6 +38,7 @@ class AvailabilityIntegrationTest extends AbstractIntegrationTest {
 
     private static final String API_URL = "/api/v1/availability";
 
+
     @Test
     @DisplayName("should paginate results when many slots exist")
     void testPagination() throws Exception {
@@ -53,7 +52,6 @@ class AvailabilityIntegrationTest extends AbstractIntegrationTest {
                     .ownerId(1L)
                     .status(BlockStatus.AVAILABLE)
                     .build();
-
             repository.save(block);
         }
 
@@ -65,6 +63,46 @@ class AvailabilityIntegrationTest extends AbstractIntegrationTest {
                 .andExpect(jsonPath("$.content", hasSize(10)))
                 .andExpect(jsonPath("$.totalElements", is(25)))
                 .andExpect(jsonPath("$.totalPages", is(3)));
+    }
+
+    @Test
+    @DisplayName("should filter slots by date range and owner (Aggregated View)")
+    void testFiltering() throws Exception {
+        repository.deleteAll();
+        var now = LocalDateTime.now().withMinute(0).withSecond(0).withNano(0);
+
+        createBlockInDb(now.plusHours(1), now.plusHours(2), 1L);
+        createBlockInDb(now.plusDays(1).plusHours(1), now.plusDays(1).plusHours(2), 1L);
+        createBlockInDb(now.plusHours(3), now.plusHours(4), 2L);
+
+        mockMvc.perform(get(API_URL).param("userId", "1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content", hasSize(2)));
+
+        mockMvc.perform(get(API_URL)
+                        .param("from", now.toString())
+                        .param("to", now.plusHours(10).toString()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content", hasSize(2)));
+
+        mockMvc.perform(get(API_URL)
+                        .param("userId", "1")
+                        .param("from", now.toString())
+                        .param("to", now.plusHours(10).toString()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content", hasSize(1)));
+    }
+
+    @Test
+    @DisplayName("should delete an existing slot")
+    void testDelete() throws Exception {
+        var start = LocalDateTime.now().plusDays(10);
+        var block = createBlockInDb(start, start.plusHours(1), 50L);
+
+        mockMvc.perform(delete(API_URL + "/" + block.getId()))
+                .andExpect(status().isNoContent());
+
+        assertThat(repository.existsById(block.getId())).isFalse();
     }
 
     @Test
@@ -105,7 +143,7 @@ class AvailabilityIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
-    @DisplayName("should prevent double booking using optimistic locking")
+    @DisplayName("should prevent double booking using optimistic locking (Concurrent)")
     void testConcurrency_optimisticLocking() throws Exception {
         var start = LocalDateTime.now().plusDays(1).withHour(10).withMinute(0);
         var end = start.plusHours(1);
@@ -151,6 +189,62 @@ class AvailabilityIntegrationTest extends AbstractIntegrationTest {
 
         assertThat(oneSucceeded).as("Pelo menos um deve conseguir").isTrue();
         assertThat(oneConflict).as("O outro deve receber conflito (409)").isTrue();
+    }
+
+    @Test
+    @DisplayName("should return 400 Bad Request when end time is before start time")
+    void testCreateAvailability_InvalidDates() throws Exception {
+        var start = LocalDateTime.now().plusDays(1);
+        var end = start.minusHours(1);
+        var payload = new AvailabilityRequest(start, end, 1L);
+
+        mockMvc.perform(post(API_URL)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(payload)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.title").value("Invalid Operational State"))
+                .andExpect(jsonPath("$.detail").value("End time cannot be before start time"));
+    }
+
+    @Test
+    @DisplayName("should return 404 Not Found when reserving non-existent slot")
+    void testReserve_NotFound() throws Exception {
+        var payload = new ReservationRequest(500L, 0L, "Title", "Desc", Set.of());
+
+        mockMvc.perform(post(API_URL + "/9999999/reserve")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(payload)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.title").value("Resource Constraints Violated"));
+    }
+
+    @Test
+    @DisplayName("should return 409 Conflict when version matches but slot is stale")
+    void testReserve_StaleVersion() throws Exception {
+        var start = LocalDateTime.now().plusDays(3);
+        var block = createBlockInDb(start, start.plusHours(1), 1L);
+        Long originalVersion = block.getVersion();
+
+        block.setStatus(BlockStatus.RESERVED);
+        repository.save(block);
+
+        var staleRequest = new ReservationRequest(200L, originalVersion, "Second", "Desc", Set.of());
+
+        mockMvc.perform(post(API_URL + "/" + block.getId() + "/reserve")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(staleRequest)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.title").value("Concurrency Conflict"))
+                .andExpect(jsonPath("$.type").value("https://api.scheduler.com/errors/concurrency"));
+    }
+
+    private TimeBlock createBlockInDb(LocalDateTime start, LocalDateTime end, Long ownerId) {
+        return repository.save(TimeBlock.builder()
+                .startTime(start)
+                .endTime(end)
+                .ownerId(ownerId)
+                .status(BlockStatus.AVAILABLE)
+                .build());
     }
 
     private int doReserve(Long blockId, String json) {
