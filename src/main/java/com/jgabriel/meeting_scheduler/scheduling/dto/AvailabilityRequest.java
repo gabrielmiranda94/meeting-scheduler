@@ -1,22 +1,24 @@
 package com.jgabriel.meeting_scheduler.scheduling.dto;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Future;
 import jakarta.validation.constraints.NotNull;
 import java.time.LocalDateTime;
 
+@Schema(description = "Payload to define a new available time slot.")
 public record AvailabilityRequest(
-        @NotNull(message = "Start time is mandatory")
-        @Future(message = "Start time must be in the future")
+
+        @NotNull
+        @Future
+        @Schema(description = "Start time (ISO 8601). Must be in the future.", example = "2026-12-01T10:00:00")
         LocalDateTime startTime,
 
-        @NotNull(message = "End time is mandatory")
-        @Future(message = "End time must be in the future")
+        @NotNull
+        @Future
+        @Schema(description = "End time (ISO 8601). Must be after start time.", example = "2026-12-01T11:00:00")
         LocalDateTime endTime,
 
-        @NotNull(message = "Owner ID is mandatory")
+        @NotNull
+        @Schema(description = "ID of the calendar owner.", example = "1")
         Long ownerId
-) {
-    public boolean isValid() {
-        return startTime != null && endTime != null && startTime.isBefore(endTime);
-    }
-}
+) {}
