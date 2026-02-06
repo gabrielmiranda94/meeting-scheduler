@@ -90,6 +90,7 @@ JSON
 "description": "Discussing Q1 goals",
 "participants": ["jane@corp.com", "bob@client.com"]
 }
+
 **4. Cancel Reservation
    Frees up a reserved slot, making it available again.**
 
