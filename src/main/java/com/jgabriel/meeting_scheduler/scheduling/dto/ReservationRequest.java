@@ -3,6 +3,7 @@ package com.jgabriel.meeting_scheduler.scheduling.dto;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+
 import java.util.Set;
 
 @Schema(description = "Payload to reserve an existing slot.")

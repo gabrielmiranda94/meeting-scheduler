@@ -3,6 +3,7 @@ package com.jgabriel.meeting_scheduler.scheduling.dto;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Future;
 import jakarta.validation.constraints.NotNull;
+
 import java.time.LocalDateTime;
 
 @Schema(description = "Payload to define a new available time slot.")
