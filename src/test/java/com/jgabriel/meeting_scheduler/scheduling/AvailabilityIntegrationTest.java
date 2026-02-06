@@ -238,6 +238,23 @@ class AvailabilityIntegrationTest extends AbstractIntegrationTest {
                 .andExpect(jsonPath("$.type").value("https://api.scheduler.com/errors/concurrency"));
     }
 
+    @Test
+    @DisplayName("should return 400 with detailed field errors when DTO validation fails")
+    void testCreateAvailability_DtoValidationFailure() throws Exception {
+        var pastDate = LocalDateTime.now().minusDays(10);
+        var invalidPayload = new AvailabilityRequest(pastDate, pastDate.plusHours(1), null);
+
+        mockMvc.perform(post(API_URL)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(invalidPayload)))
+                .andExpect(status().isBadRequest()) // Espera 400
+                .andExpect(jsonPath("$.title").value("Invalid Request Parameters")) // Título definido no Coordinator
+                .andExpect(jsonPath("$.detail").value("Input validation failed"))
+                .andExpect(jsonPath("$.fieldErrors").exists())
+                .andExpect(jsonPath("$.fieldErrors.startTime").exists())
+                .andExpect(jsonPath("$.fieldErrors.ownerId").exists());
+    }
+
     private TimeBlock createBlockInDb(LocalDateTime start, LocalDateTime end, Long ownerId) {
         return repository.save(TimeBlock.builder()
                 .startTime(start)

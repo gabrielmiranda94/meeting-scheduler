@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import java.net.URI;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -51,18 +52,23 @@ public class RestFaultCoordinator {
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ProblemDetail handleValidation(MethodArgumentNotValidException ex) {
-        log.warn("Validation failed: {}", ex.getMessage());
+        Map<String, String> errors = ex.getBindingResult().getFieldErrors().stream()
+                .collect(Collectors.toMap(
+                        error -> error.getField(),
+                        error -> error.getDefaultMessage() != null ? error.getDefaultMessage() : "Invalid value",
+                        (msg1, msg2) -> msg1 + "; " + msg2
+                ));
 
-        String detail = ex.getBindingResult().getFieldErrors().stream()
-                .map(error -> error.getField() + ": " + error.getDefaultMessage())
-                .collect(Collectors.joining(", "));
+        log.warn("Validation failed for fields: {}", errors.keySet());
 
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(
                 HttpStatus.BAD_REQUEST,
                 "Input validation failed"
         );
-        problem.setTitle("Invalid Request Content");
-        problem.setProperty("errors", detail);
+        problem.setTitle("Invalid Request Parameters");
+
+        problem.setProperty("fieldErrors", errors);
+
         return problem;
     }
 }
